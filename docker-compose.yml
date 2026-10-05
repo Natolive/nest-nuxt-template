@@ -1,0 +1,63 @@
+# Développement. Projet Docker nommé (indépendant du nom du dossier) : conteneurs, réseau et volume `socle_*`.
+# Ports de l'hôte réglables dans .env (voir .env.example) pour faire tourner plusieurs projets en même temps.
+name: socle
+
+# Une seule image pour l'espace de travail npm (shared + backend + frontend).
+x-app: &app
+  build: { context: ., target: dev }
+  volumes:
+    - .:/repo
+    - /repo/node_modules
+    - /repo/backend/node_modules
+    - /repo/frontend/node_modules
+
+services:
+  db:
+    image: postgres:18.6
+    environment:
+      # Identifiants de dev en clair ; la prod les lit dans .env (docker-compose.prod.yml).
+      - POSTGRES_USER=socle
+      - POSTGRES_PASSWORD=socle
+      - POSTGRES_DB=socle
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U socle -d socle"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  # Emails gardés, jamais envoyés : http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - "127.0.0.1:${MAIL_PORT:-8025}:8025"
+
+  backend:
+    <<: *app
+    working_dir: /repo/backend
+    command: sh -c "npm run db:migrate && npm run start:dev"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgres://socle:socle@db:5432/socle
+      # Adresse du front, pour les liens des emails.
+      - APP_URL=http://localhost:${APP_PORT:-3000}
+      - MAILPIT_URL=http://mailpit:8025
+
+  # Seul point d'entrée : l'API est servie par le front sous /api (même origine qu'en prod, ni CORS ni cookie tiers).
+  frontend:
+    <<: *app
+    working_dir: /repo/frontend
+    command: npm run dev -- --host 0.0.0.0
+    depends_on: [backend]
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+
+volumes:
+  db-data:

@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-display: 'Space Grotesk', sans-serif;
+}
+
+/* Titres de page dans la police du logo. */
+@layer base {
+  h1 { font-family: var(--font-display); letter-spacing: -.02em; }
+}
+
+/* Tailwind v4 ne met plus de main sur les boutons : on la remet partout où l'on peut cliquer. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="checkbox"],
+  [role="combobox"],
+  [role="option"],
+  [role="menuitem"],
+  [role="tab"],
+  label:has(input, button),
+  label[for] {
+    cursor: pointer;
+  }
+}
+
+/* Animations uniquement en réponse à une action (navigation, envoi d'un formulaire), coupées sous prefers-reduced-motion. */
+
+/* Transition entre pages : le layout reste en place, le contenu monte légèrement en arrivant. */
+.page-enter-active {
+  transition: opacity .25s ease-out, transform .35s cubic-bezier(.2, .9, .3, 1.2);
+}
+.page-leave-active {
+  transition: opacity .12s ease-in;
+}
+.page-enter-from { opacity: 0; transform: translateY(10px); }
+.page-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active, .page-leave-active { transition: none; }
+}
